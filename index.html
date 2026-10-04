@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trilha das Lendas</title>
+<style>
+  :root {
+    --bg: #fdf1c7; --ink: #2b2118; --panel: #fffaf0; --line: #2b2118;
+    --fogo: #e53935; --ar: #16a34a; --agua: #38a8f0; --terra: #b8731a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Segoe UI", system-ui, sans-serif; }
+  h1 { margin: 0; font-size: 22px; letter-spacing: .5px; }
+  header { padding: 10px 16px; display: flex; align-items: baseline; gap: 12px; border-bottom: 3px solid var(--line); background: #f6dc8c; }
+  header small { opacity: .7; font-style: italic; }
+  header button { margin-left: auto; }
+  button { font: inherit; cursor: pointer; border: 2px solid var(--line); background: #fff; border-radius: 8px; padding: 7px 12px; font-weight: 600; }
+  button:hover:not(:disabled) { background: #fff3c4; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.primary { background: #2b2118; color: #fff; }
+  button.primary:hover:not(:disabled) { background: #4a3826; }
+
+  #game { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px; align-items: flex-start; justify-content: center; }
+  #boardWrap { flex: 0 1 560px; }
+  #board { width: min(560px, calc(100vw - 32px)); aspect-ratio: 1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; background: #d9c9a3; padding: 6px; border-radius: 8px; border: 3px solid var(--line); }
+  .tile { position: relative; background: #fff; border-radius: 6px; overflow: hidden; user-select: none; }
+  .tile .k { position: absolute; width: 30%; height: 30%; background: var(--c); }
+  .tile .k.tl { top: 0; left: 0; border-bottom-right-radius: 4px; } .tile .k.tr { top: 0; right: 0; border-bottom-left-radius: 4px; }
+  .tile .k.bl { bottom: 0; left: 0; border-top-right-radius: 4px; } .tile .k.br { bottom: 0; right: 0; border-top-left-radius: 4px; }
+  .tile .ico { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 34%; height: 34%; border: 2px solid var(--line); border-radius: 50%; display: grid; place-items: center; font-size: clamp(10px, 2.6vw, 20px); background: #fff; }
+  .tile .arrw { position: absolute; inset: 0; pointer-events: none; transition: transform .25s; }
+  .tile .arr { position: absolute; top: 2%; left: 50%; transform: translateX(-50%); font-size: clamp(12px, 3vw, 22px); font-weight: 900; line-height: 1; }
+  .tile.fim { --c: #111; }
+  .tile.fim .ico { font-size: clamp(9px, 2vw, 14px); font-weight: 800; border: none; }
+  .tile .pins { position: absolute; left: 2px; right: 2px; bottom: 2px; display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; }
+  .pin { width: clamp(10px, 2.6vw, 18px); height: clamp(10px, 2.6vw, 18px); border-radius: 50% 50% 45% 45%; background: var(--pc); border: 2px solid #fff; box-shadow: 0 0 0 1.5px #000; }
+  .pin.me { animation: bob 1s infinite alternate; }
+  @keyframes bob { to { transform: translateY(-3px); } }
+  .tile.start::before { content: "INÍCIO"; position: absolute; top: 1px; left: 50%; transform: translateX(-50%); font-size: 8px; font-weight: 800; z-index: 1; }
+  .tile.next { outline: 3px dashed var(--line); outline-offset: -3px; }
+  .tile.pick { cursor: pointer; outline: 4px solid #ffb300; outline-offset: -4px; animation: glow 0.8s infinite alternate; }
+  .tile.hl { outline: 4px solid #7e57c2; outline-offset: -4px; }
+  @keyframes glow { to { outline-color: #ff6f00; } }
+
+  #side { flex: 1 1 340px; max-width: 520px; display: flex; flex-direction: column; gap: 12px; }
+  .box { background: var(--panel); border: 3px solid var(--line); border-radius: 10px; padding: 12px; }
+  .box h3 { margin: 0 0 8px; font-size: 15px; text-transform: uppercase; letter-spacing: .5px; }
+  .turn { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .turn .pin { width: 22px; height: 22px; }
+  .acts { display: flex; gap: 4px; }
+  .acts span { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); }
+  .acts span.on { background: #2b2118; }
+  .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .prompt { background: #fff3c4; border: 2px dashed var(--line); border-radius: 8px; padding: 10px; margin-top: 10px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+  .market { display: flex; gap: 8px; align-items: flex-end; }
+  .card { width: 100%; border-radius: 6px; display: block; }
+  .mcard { flex: 1; position: relative; }
+  .mcard.buy { cursor: pointer; }
+  .mcard.buy:hover img { outline: 4px solid #ffb300; }
+  .pile { flex: 0 0 64px; height: 90px; border-radius: 6px; background: repeating-linear-gradient(45deg, #2b2118, #2b2118 6px, #4a3826 6px, #4a3826 12px); color: #fff; display: grid; place-items: center; font-weight: 800; text-align: center; font-size: 12px; border: 2px solid var(--line); }
+
+  .players { display: flex; flex-direction: column; gap: 8px; }
+  .pl { display: flex; gap: 10px; align-items: center; padding: 6px; border-radius: 8px; border: 2px solid transparent; }
+  .pl.cur { border-color: var(--line); background: #fff3c4; }
+  .pl img { width: 54px; border-radius: 4px; cursor: zoom-in; }
+  .pl .nocard { width: 54px; height: 75px; border: 2px dashed #999; border-radius: 4px; display: grid; place-items: center; font-size: 10px; color: #999; text-align: center; }
+  .pl .info { flex: 1; }
+  .frags { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+  .frag { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); background: var(--fc); }
+  .frag.empty { background: transparent; border-style: dashed; opacity: .35; }
+  .need { font-size: 11px; margin-top: 3px; }
+  .supply { display: flex; gap: 10px; font-size: 13px; font-weight: 600; margin-top: 8px; flex-wrap: wrap; }
+  .supply span { display: inline-flex; align-items: center; gap: 4px; }
+
+  #log { max-height: 160px; overflow: auto; font-size: 13px; margin: 0; padding-left: 18px; }
+  #log li { margin-bottom: 2px; }
+
+  #modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; place-items: center; z-index: 10; padding: 16px; }
+  #modal.open { display: grid; }
+  #modal .dlg { background: var(--panel); border: 3px solid var(--line); border-radius: 12px; padding: 18px; max-width: 560px; width: 100%; max-height: 90vh; overflow: auto; }
+  #modal .msg { font-weight: 700; margin-bottom: 12px; font-size: 17px; }
+  #modal .opts { display: flex; flex-wrap: wrap; gap: 8px; }
+  #modal .opts button.cardopt { padding: 4px; width: 120px; display: flex; flex-direction: column; gap: 4px; align-items: center; font-size: 12px; }
+  #modal .opts button.cardopt img { width: 100%; border-radius: 4px; }
+  #modal .zoom { width: min(360px, 80vw); display: block; margin: 0 auto 12px; border-radius: 10px; }
+
+  #setup { max-width: 520px; margin: 30px auto; }
+  #setup .row { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+  #setup input { font: inherit; padding: 6px 8px; border: 2px solid var(--line); border-radius: 6px; flex: 1; }
+  .rules { font-size: 14px; line-height: 1.45; }
+  .rules ul { padding-left: 18px; }
+
+  .menu { display: grid; gap: 10px; }
+  .menu .or { text-align: center; font-size: 13px; opacity: .6; }
+  .code { font-size: 34px; font-weight: 900; letter-spacing: 6px; text-align: center; padding: 8px; background: #fff; border: 3px dashed var(--line); border-radius: 10px; margin: 8px 0; }
+  .lobbyList { list-style: none; padding: 0; margin: 8px 0; }
+  .lobbyList li { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+  .muted { opacity: .65; font-size: 13px; }
+  .err { color: #c62828; font-weight: 600; min-height: 1.2em; }
+  .off { opacity: .45; }
+  .tag { font-size: 11px; background: #2b2118; color: #fff; border-radius: 4px; padding: 1px 5px; margin-left: 4px; vertical-align: middle; }
+  #toast { position: fixed; left: 50%; top: 16px; transform: translate(-50%, -150%); background: #2b2118; color: #fff; padding: 12px 22px; border-radius: 10px; font-weight: 800; font-size: 18px; z-index: 20; transition: transform .3s; }
+  #toast.show { transform: translate(-50%, 0); }
+  .waiting { margin-top: 10px; padding: 10px; border-radius: 8px; background: #f3ead2; font-weight: 600; text-align: center; }
+</style>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>TRILHA DAS LENDAS</h1><small>Uma corrida pela natureza com o folclore brasileiro</small>
+  <button id="btnRules">Regras</button>
+</header>
+
+<div id="menu" class="box" style="max-width:520px;margin:30px auto">
+  <h3>Jogar online</h3>
+  <div class="menu">
+    <div class="row" style="display:flex;gap:8px;align-items:center">Seu nome:
+      <input id="myName" maxlength="16" placeholder="Seu nome" style="flex:1;font:inherit;padding:6px 8px;border:2px solid var(--line);border-radius:6px"></div>
+    <button class="primary" id="btnCreate">Criar sala</button>
+    <div class="or">— ou entre na sala de um amigo —</div>
+    <div style="display:flex;gap:8px">
+      <input id="joinCode" maxlength="5" placeholder="CÓDIGO" style="flex:1;font:inherit;font-weight:800;letter-spacing:3px;text-transform:uppercase;padding:6px 8px;border:2px solid var(--line);border-radius:6px">
+      <button id="btnJoin">Entrar</button></div>
+    <div class="err" id="menuErr"></div>
+    <hr style="width:100%;border:none;border-top:2px dashed #c9b88a">
+    <button id="btnLocal">Jogar no mesmo computador</button>
+  </div>
+</div>
+
+<div id="lobby" class="box" style="max-width:520px;margin:30px auto;display:none"></div>
+
+<div id="setup" class="box" style="display:none">
+  <h3>Jogo no mesmo computador</h3>
+  <div class="row">Jogadores:
+    <button data-n="2">2</button><button data-n="3">3</button><button data-n="4">4</button><button data-n="5">5</button>
+  </div>
+  <div id="names"></div>
+  <div class="row" style="margin-top:12px"><button class="primary" id="btnStart">Começar!</button><button id="btnBack">Voltar</button></div>
+</div>
+<div id="toast"></div>
+
+<div id="game" style="display:none">
+  <div id="boardWrap"><div id="board"></div></div>
+  <div id="side">
+    <div class="box" id="turnBox"></div>
+    <div class="box"><h3>Mercado</h3><div class="market" id="market"></div>
+      <div class="supply" id="supply"></div></div>
+    <div class="box"><h3>Jogadores</h3><div class="players" id="players"></div></div>
+    <div class="box"><h3>Histórico</h3><ol id="log" reversed></ol></div>
+  </div>
+</div>
+
+<div id="modal"><div class="dlg"></div></div>
+
+<script>
+// ---------- Dados ----------
+const EL = {
+  fogo:  { n: 'Fogo',  c: '#e53935', i: '🔥' },
+  ar:    { n: 'Ar',    c: '#16a34a', i: '💨' },
+  agua:  { n: 'Água',  c: '#38a8f0', i: '💧' },
+  terra: { n: 'Terra', c: '#b8731a', i: '⛰️' },
+};
+const ELS = ['fogo', 'ar', 'agua', 'terra'];
+const DIRS = [[-1, 0], [0, 1], [1, 0], [0, -1]]; // 0 cima, 1 direita, 2 baixo, 3 esquerda
+const DIR_ARROW = ['↑', '→', '↓', '←'];
+const DIR_NAME = ['Cima', 'Direita', 'Baixo', 'Esquerda'];
+const FIM = [2, 2];
+// Trilha inicial em caracol (fig. 01 do manual)
+const SPIRAL = [
+  [1, 1, 1, 1, 2],
+  [1, 1, 1, 2, 2],
+  [0, 1, -1, 2, 2],
+  [0, 0, 3, 3, 2],
+  [0, 3, 3, 3, 3],
+];
+const PIN_COLORS = [
+  { n: 'Roxo', c: '#7e57c2' }, { n: 'Laranja', c: '#ff8f00' }, { n: 'Rosa', c: '#ec407a' },
+  { n: 'Preto', c: '#212121' }, { n: 'Amarelo', c: '#fdd835' },
+];
+const CARDS = {
+  caipora:   { name: 'Caipora', el: 'terra', hab: 'Névoa', txt: 'Troque a casa onde está por outra casa na mesma linha ou coluna.', img: 'Carta Caipora (630 x 880 px) (2).png' },
+  curupira:  { name: 'Curupira', el: 'terra', hab: 'Confusão', txt: 'Troque a casa onde está com a casa de outro jogador.', img: 'Carta Curupira (630 x 880 px) (2).png' },
+  fulozinha: { name: 'Comadre Fulozinha', el: 'terra', hab: 'Nó de Cipó', txt: 'Troque duas casas do mesmo elemento.', img: 'Carta Fulozinha (630 x 880 px).png' },
+  mula:      { name: 'Mula sem Cabeça', el: 'fogo', hab: 'Disparada', txt: 'Ande até 04 casas.', img: 'Carta Mula (630 x 880 px) (2).png' },
+  passaro:   { name: 'Pássaro de Fogo', el: 'fogo', hab: 'Voo de Fogo', txt: 'Troque todas as cartas do mercado e compre 1 carta.', img: 'Carta Pássaro (630 x 880 px).png' },
+  boitata:   { name: 'Boitatá', el: 'fogo', hab: 'Fogo Vivo', txt: 'Ganhe 02 ações.', img: 'Carta Boitatá (630 x 880 px) (5).png' },
+  boto:      { name: 'Boto Cor-de-Rosa', el: 'agua', hab: 'Charme', txt: 'Troque 1 fragmento qualquer por 2 fragmentos quaisquer.', img: 'Carta Boto (630 x 880 px) (2).png' },
+  iara:      { name: 'Iara', el: 'agua', hab: 'Encanto', txt: 'Colete 1 fragmento qualquer do jogador que está na mesma linha ou coluna.', img: 'Carta Iara (630 x 880 px) (2).png' },
+  cobra:     { name: 'Cobra Norato', el: 'agua', hab: 'Metamorfose', txt: 'Copia a habilidade de uma carta de outro jogador.', img: 'Carta Cobra Norato (630 x 880 px).png' },
+  saci:      { name: 'Saci Pererê', el: 'ar', hab: 'Redemoinho', txt: 'Gire a casa onde está ou 01 casa adjacente.', img: 'Carta Saci (630 x 880 px) (2).png' },
+  matinta:   { name: 'Matinta Perera', el: 'ar', hab: 'Assobio', txt: 'Gire a casa onde outro jogador está.', img: 'Carta Matinta (630 x 880 px) (2).png' },
+  jaebe:     { name: 'Jaebé', el: 'ar', hab: 'Alma Gêmea', txt: 'Gire 01 casa do elemento da casa que você está.', img: 'Carta Jaebé (630 x 880 px).png' },
+};
+const imgSrc = id => `cartas/${id}.webp`;
+
+// ---------- Estado ----------
+let S = null;          // estado do jogo
+let busy = false;      // fluxo assíncrono em andamento
+let ui = { mode: null, hl: null };
+
+const wrap = n => (n + 5) % 5;
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const clone = o => JSON.parse(JSON.stringify(o));
+const isFim = (r, c) => r === FIM[0] && c === FIM[1];
+const cur = () => S.players[S.cur];
+const total = p => ELS.reduce((s, e) => s + p.frags[e], 0);
+const tileAt = (r, c) => S.board[r][c];
+const playersAt = (r, c) => S.players.filter(p => p.r === r && p.c === c);
+const neighbors = (r, c) => DIRS.map(([dr, dc]) => [wrap(r + dr), wrap(c + dc)]);
+const elTag = e => `<b style="color:${EL[e].c}">${EL[e].i} ${EL[e].n}</b>`;
+const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+const pName = p => `<b style="color:${p.color === '#fdd835' ? '#b59a00' : p.color}">${esc(p.name)}</b>`;
+
+// people: [{ name, pid }] — pid é o id de rede (null no modo local)
+function newGame(people) {
+  const tiles = shuffle(ELS.flatMap(e => Array(6).fill(e)));
+  const board = [];
+  for (let r = 0; r < 5; r++) {
+    board.push([]);
+    for (let c = 0; c < 5; c++) {
+      board[r].push(isFim(r, c) ? { fim: true } : { el: tiles.pop(), dir: SPIRAL[r][c] });
+    }
+  }
+  const deck = shuffle(Object.keys(CARDS));
+  const players = people.map(({ name, pid }, i) => ({
+    name, pid: pid ?? null, online: true, color: PIN_COLORS[i].c, r: 0, c: 0,
+    card: deck.pop(), frags: { fogo: 0, ar: 0, agua: 0, terra: 0 },
+  }));
+  const market = [deck.pop(), deck.pop(), deck.pop()];
+  S = {
+    board, players, market, pile: deck, // pile[0] = topo
+    supply: { fogo: 12, ar: 12, agua: 12, terra: 12 },
+    cur: Math.floor(Math.random() * players.length), actions: 2, log: [], winner: null,
+  };
+  log(`Jogo começou! ${pName(cur())} foi sorteado(a) para começar.`);
+}
+
+function log(html) { S.log.unshift(html); }
+
+// ---------- Regras do tabuleiro ----------
+// Uma seta nunca pode apontar para outra seta em sentido oposto (considera a borda infinita)
+function boardValid(b) {
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+    const t = b[r][c];
+    if (t.fim) continue;
+    const [dr, dc] = DIRS[t.dir];
+    const n = b[wrap(r + dr)][wrap(c + dc)];
+    if (!n.fim && n.dir === (t.dir + 2) % 4) return false;
+  }
+  return true;
+}
+function canSwap(a, b) {
+  if (isFim(...a) || isFim(...b) || (a[0] === b[0] && a[1] === b[1])) return false;
+  const nb = S.board.map(row => row.slice());
+  [nb[a[0]][a[1]], nb[b[0]][b[1]]] = [nb[b[0]][b[1]], nb[a[0]][a[1]]];
+  return boardValid(nb);
+}
+function doSwap(a, b) {
+  const t = S.board[a[0]][a[1]];
+  S.board[a[0]][a[1]] = S.board[b[0]][b[1]];
+  S.board[b[0]][b[1]] = t;
+}
+function rotOptions(r, c) {
+  const t = tileAt(r, c);
+  if (t.fim) return [];
+  const opts = [];
+  for (let d = 0; d < 4; d++) {
+    if (d === t.dir) continue;
+    const old = t.dir; t.dir = d;
+    if (boardValid(S.board)) opts.push(d);
+    t.dir = old;
+  }
+  return opts;
+}
+const canRotate = (r, c) => rotOptions(r, c).length > 0;
+
+function moveByArrow(p) {
+  const [dr, dc] = DIRS[tileAt(p.r, p.c).dir];
+  p.r = wrap(p.r + dr); p.c = wrap(p.c + dc);
+}
+function hasAllElements(p) { return ELS.every(e => p.frags[e] >= 1); }
+function checkWin(p) {
+  if (!S.winner && isFim(p.r, p.c) && hasAllElements(p)) {
+    S.winner = p;
+    log(`🏆 ${pName(p)} chegou ao FIM com todos os elementos e VENCEU!`);
+  }
+}
+
+// ---------- Prompts assíncronos ----------
+function choose(msg, options, cancelable = true, extraHtml = '') {
+  return new Promise(resolve => {
+    const m = document.getElementById('modal');
+    const dlg = m.querySelector('.dlg');
+    const opts = options.slice();
+    if (cancelable) opts.push({ label: 'Cancelar', value: null });
+    dlg.innerHTML = `<div class="msg">${msg}</div>${extraHtml}<div class="opts">${opts.map((o, i) =>
+      `<button data-i="${i}" class="${o.img ? 'cardopt' : ''} ${o.primary ? 'primary' : ''}" ${o.disabled ? 'disabled' : ''}>${o.img ? `<img src="${o.img}">` : ''}${o.label}</button>`).join('')}</div>`;
+    m.classList.add('open');
+    dlg.querySelectorAll('button').forEach(b => b.onclick = () => {
+      m.classList.remove('open');
+      resolve(opts[+b.dataset.i].value);
+    });
+  });
+}
+const alertMsg = msg => choose(msg, [{ label: 'OK', value: true, primary: true }], false);
+
+function pickTile(msg, filter) {
+  return new Promise(resolve => {
+    ui.mode = { type: 'tile', msg, filter, resolve };
+    render();
+  });
+}
+function resolveTile(val) {
+  const m = ui.mode; ui.mode = null;
+  m.resolve(val);
+}
+
+async function pickDirection(r, c) {
+  const opts = rotOptions(r, c);
+  ui.hl = [r, c]; render();
+  const d = await choose(`Para onde a seta deve apontar? (atual: ${DIR_ARROW[tileAt(r, c).dir]})`,
+    [0, 1, 2, 3].map(d => ({ label: `${DIR_ARROW[d]} ${DIR_NAME[d]}`, value: d, disabled: !opts.includes(d) })));
+  ui.hl = null;
+  return d;
+}
+
+// Adiciona um fragmento respeitando o limite de 5 (pode substituir um). from = jogador de onde vem (Iara)
+async function gainFragment(p, el, from = null) {
+  if (!from && S.supply[el] <= 0) { await alertMsg(`Não há mais fragmentos de ${EL[el].n} disponíveis.`); return false; }
+  if (total(p) >= 5) {
+    const drop = await choose(`Você já tem 5 fragmentos. Devolva um para ficar com ${elTag(el)}:`,
+      ELS.filter(e => p.frags[e] > 0).map(e => ({ label: `Devolver ${EL[e].i} ${EL[e].n}`, value: e })));
+    if (!drop) return false;
+    p.frags[drop]--; S.supply[drop]++;
+  }
+  if (from) from.frags[el]--; else S.supply[el]--;
+  p.frags[el]++;
+  return true;
+}
+
+// ---------- Habilidades ----------
+// Cada uma retorna true (feita) ou false (cancelada -> estado é restaurado)
+const ABIL = {
+  async caipora(p) {
+    if (isFim(p.r, p.c)) return fail('Você está no FIM, que não pode ser movido.');
+    const t = await pickTile('Névoa: escolha uma casa na mesma linha ou coluna para trocar com a sua.',
+      (r, c) => (r === p.r || c === p.c) && canSwap([p.r, p.c], [r, c]));
+    if (!t) return false;
+    doSwap([p.r, p.c], t); log(`${pName(p)} trocou a sua casa de lugar (Névoa).`);
+    return true;
+  },
+  async curupira(p) {
+    if (isFim(p.r, p.c)) return fail('Você está no FIM, que não pode ser movido.');
+    const t = await pickTile('Confusão: escolha a casa de outro jogador para trocar com a sua.',
+      (r, c) => S.players.some(o => o !== p && o.r === r && o.c === c) && canSwap([p.r, p.c], [r, c]));
+    if (!t) return false;
+    doSwap([p.r, p.c], t); log(`${pName(p)} trocou a sua casa com a de outro jogador (Confusão).`);
+    return true;
+  },
+  async fulozinha(p) {
+    const pairOk = (a) => { for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) if (!isFim(r, c) && tileAt(r, c).el === tileAt(...a).el && canSwap(a, [r, c])) return true; return false; };
+    const a = await pickTile('Nó de Cipó: escolha a primeira casa.', (r, c) => !isFim(r, c) && pairOk([r, c]));
+    if (!a) return false;
+    ui.hl = a;
+    const b = await pickTile(`Agora escolha outra casa de ${elTag(tileAt(...a).el)} para trocar.`,
+      (r, c) => !isFim(r, c) && tileAt(r, c).el === tileAt(...a).el && canSwap(a, [r, c]));
+    ui.hl = null;
+    if (!b) return false;
+    doSwap(a, b); log(`${pName(p)} trocou duas casas de ${elTag(tileAt(...a).el)} (Nó de Cipó).`);
+    return true;
+  },
+  async mula(p) {
+    let steps = 0;
+    while (steps < 4 && !S.winner) {
+      const go = await choose(`Disparada: passo ${steps + 1} de até 4.`, [
+        { label: isFim(p.r, p.c) ? 'Sair do FIM' : `Andar ${DIR_ARROW[tileAt(p.r, p.c).dir]}`, value: 'go', primary: true },
+        ...(steps > 0 ? [{ label: 'Parar aqui', value: 'stop' }] : []),
+      ], steps === 0);
+      if (!go) return false;
+      if (go === 'stop') break;
+      if (!(await stepPlayer(p, steps === 0))) { if (steps === 0) return false; break; }
+      steps++;
+      checkWin(p); render();
+    }
+    log(`${pName(p)} andou ${steps} casa(s) com a Disparada.`);
+    return true;
+  },
+  async passaro(p) {
+    S.pile.push(...S.market);
+    S.market = [S.pile.shift(), S.pile.shift(), S.pile.shift()];
+    log(`${pName(p)} trocou todas as cartas do mercado (Voo de Fogo).`);
+    render();
+    const i = await choose('Voo de Fogo: escolha 1 carta do novo mercado para comprar.',
+      S.market.map((id, i) => ({ label: CARDS[id].name, value: String(i), img: imgSrc(id) })).concat([{ label: 'Não comprar', value: 'none' }]), false);
+    if (i !== 'none') buyCard(p, +i);
+    return true;
+  },
+  async boitata(p) {
+    S.actions += 2; log(`${pName(p)} ganhou 2 ações (Fogo Vivo).`);
+    return true;
+  },
+  async boto(p) {
+    if (total(p) < 1) return fail('Você não tem fragmentos para trocar.');
+    const give = await choose('Charme: qual fragmento você entrega?',
+      ELS.filter(e => p.frags[e] > 0).map(e => ({ label: `${EL[e].i} ${EL[e].n}`, value: e })));
+    if (!give) return false;
+    p.frags[give]--; S.supply[give]++;
+    for (let k = 1; k <= 2; k++) {
+      const get = await choose(`Charme: escolha o fragmento ${k} de 2 para receber.`,
+        ELS.map(e => ({ label: `${EL[e].i} ${EL[e].n}`, value: e, disabled: S.supply[e] <= 0 })));
+      if (!get || !(await gainFragment(p, get))) return false;
+    }
+    log(`${pName(p)} trocou 1 fragmento por 2 (Charme).`);
+    return true;
+  },
+  async iara(p) {
+    const victims = S.players.filter(o => o !== p && (o.r === p.r || o.c === p.c) && total(o) > 0);
+    if (!victims.length) return fail('Nenhum jogador com fragmentos na mesma linha ou coluna.');
+    const v = await choose('Encanto: de qual jogador você vai coletar?', victims.map(o => ({ label: esc(o.name), value: S.players.indexOf(o) })));
+    if (v === null) return false;
+    const vic = S.players[v];
+    const el = await choose(`Qual fragmento pegar de ${esc(vic.name)}?`,
+      ELS.filter(e => vic.frags[e] > 0).map(e => ({ label: `${EL[e].i} ${EL[e].n}`, value: e })));
+    if (!el || !(await gainFragment(p, el, vic))) return false;
+    log(`${pName(p)} pegou ${elTag(el)} de ${pName(vic)} (Encanto).`);
+    return true;
+  },
+  async cobra(p) {
+    const others = S.players.filter(o => o !== p && o.card && o.card !== 'cobra');
+    if (!others.length) return fail('Nenhum outro jogador tem carta para copiar.');
+    const id = await choose('Metamorfose: qual habilidade você vai copiar?',
+      others.map(o => ({ label: `${CARDS[o.card].hab} (${esc(o.name)})`, value: o.card, img: imgSrc(o.card) })));
+    if (!id) return false;
+    log(`${pName(p)} copiou ${CARDS[id].hab} (Metamorfose).`);
+    return ABIL[id](p);
+  },
+  async saci(p) {
+    const cands = [[p.r, p.c], ...neighbors(p.r, p.c)];
+    const t = await pickTile('Redemoinho: escolha a sua casa ou uma casa adjacente para girar.',
+      (r, c) => cands.some(([a, b]) => a === r && b === c) && canRotate(r, c));
+    if (!t) return false;
+    return rotateFlow(p, t, 'Redemoinho');
+  },
+  async matinta(p) {
+    const t = await pickTile('Assobio: escolha a casa onde outro jogador está para girar.',
+      (r, c) => S.players.some(o => o !== p && o.r === r && o.c === c) && canRotate(r, c));
+    if (!t) return false;
+    return rotateFlow(p, t, 'Assobio');
+  },
+  async jaebe(p) {
+    if (isFim(p.r, p.c)) return fail('O FIM não tem elemento.');
+    const el = tileAt(p.r, p.c).el;
+    const t = await pickTile(`Alma Gêmea: escolha uma casa de ${elTag(el)} para girar.`,
+      (r, c) => !isFim(r, c) && tileAt(r, c).el === el && canRotate(r, c));
+    if (!t) return false;
+    return rotateFlow(p, t, 'Alma Gêmea');
+  },
+};
+async function fail(msg) { await alertMsg(msg); return false; }
+async function rotateFlow(p, t, hab) {
+  const d = await pickDirection(...t);
+  if (d === null) return false;
+  tileAt(...t).dir = d;
+  log(`${pName(p)} girou uma casa para ${DIR_ARROW[d]} (${hab}).`);
+  return true;
+}
+
+// Move 1 casa (pela seta, ou escolhendo uma adjacente se estiver no FIM)
+async function stepPlayer(p, cancelable = true) {
+  if (isFim(p.r, p.c)) {
+    const ns = neighbors(p.r, p.c);
+    const t = await pickTile('Você está no FIM: escolha uma casa adjacente para ir.',
+      (r, c) => ns.some(([a, b]) => a === r && b === c));
+    if (!t) return false;
+    [p.r, p.c] = t;
+  } else moveByArrow(p);
+  return true;
+}
+
+function buyCard(p, i) {
+  const id = S.market[i];
+  p.card = id;
+  S.market[i] = S.pile.length ? S.pile.shift() : null;
+  log(`${pName(p)} comprou ${CARDS[id].name}.`);
+}
+
+// ---------- Ações ----------
+function payOptions(p) {
+  const el = CARDS[p.card].el;
+  const o = [];
+  if (!isFim(p.r, p.c) && tileAt(p.r, p.c).el === el) o.push({ label: `Estar em casa de ${EL[el].i} ${EL[el].n}`, value: 'tile' });
+  if (p.frags[el] >= 1) o.push({ label: `Pagar 1 ${EL[el].i} ${EL[el].n}`, value: 'one' });
+  if (total(p) >= 2) o.push({ label: 'Pagar 2 fragmentos quaisquer', value: 'two' });
+  return o;
+}
+
+async function act(kind, arg) {
+  if (busy || S.winner || S.actions <= 0 || !canAct()) return;
+  busy = true;
+  const epoch = NET.epoch;
+  const snap = clone(S);
+  let p = cur(), done = false;
+  try {
+    if (kind === 'move') {
+      done = await stepPlayer(p);
+      if (done) log(`${pName(p)} andou 1 casa.`);
+    } else if (kind === 'collect') {
+      const el = tileAt(p.r, p.c).el;
+      done = await gainFragment(p, el);
+      if (done) log(`${pName(p)} coletou ${elTag(el)}.`);
+    } else if (kind === 'buy') {
+      buyCard(p, arg); done = true;
+    } else if (kind === 'discard') {
+      const ok = await choose(`Descartar ${CARDS[p.card].name} sem usar a habilidade?`, [{ label: 'Descartar', value: true, primary: true }]);
+      if (ok) { log(`${pName(p)} descartou ${CARDS[p.card].name}.`); S.pile.push(p.card); p.card = null; done = true; }
+    } else if (kind === 'ability') {
+      const card = CARDS[p.card];
+      const pay = await choose(`Usar ${card.name} — <i>${card.hab}</i>: ${card.txt}<br><br>Como pagar o custo? (a carta é descartada)`,
+        payOptions(p), true, `<img class="zoom" src="${imgSrc(p.card)}" style="width:180px">`);
+      if (pay) {
+        const el = card.el;
+        if (pay === 'one') { p.frags[el]--; S.supply[el]++; }
+        if (pay === 'two') {
+          for (let k = 1; k <= 2 && pay; k++) {
+            const e = await choose(`Escolha o fragmento ${k} de 2 para pagar:`,
+              ELS.filter(e => p.frags[e] > 0).map(e => ({ label: `${EL[e].i} ${EL[e].n}`, value: e })));
+            if (!e) throw 'cancel';
+            p.frags[e]--; S.supply[e]++;
+          }
+        }
+        const id = p.card;
+        S.pile.push(id); p.card = null;
+        S.actions--; // a habilidade gasta a ação antes do efeito (Boitatá soma depois)
+        log(`${pName(p)} usou ${card.name} (${card.hab}).`);
+        render();
+        if (await ABIL[id](p)) { done = true; S.actions++; } // devolve pois o fim do act desconta
+        else throw 'cancel';
+      }
+    }
+  } catch (e) {
+    if (e !== 'cancel') console.error(e);
+    done = false;
+  }
+  ui.mode = null; ui.hl = null;
+  // O anfitrião mudou o jogo no meio da ação (ex.: pulou a sua vez): descarta o que foi feito aqui
+  if (epoch !== NET.epoch) { busy = false; render(); return; }
+  if (!done) { S = snap; busy = false; render(); return; }
+  p = cur();
+  S.actions--;
+  checkWin(p);
+  busy = false;
+  render();
+  if (S.winner) { sync(); return victory(); }
+  if (S.actions <= 0) await nextTurn();
+  else sync();
+}
+
+async function endTurnEarly() {
+  if (busy || S.winner || !canAct()) return;
+  const ok = await choose('Encerrar o turno agora?', [{ label: 'Encerrar', value: true, primary: true }]);
+  if (ok) { log(`${pName(cur())} encerrou o turno.`); await nextTurn(); }
+}
+
+async function nextTurn() {
+  S.cur = (S.cur + 1) % S.players.length;
+  S.actions = 2;
+  if (NET.mode === 'online') { sync(); render(); return; }
+  busy = true;
+  render();
+  const p = cur();
+  await choose(`Vez de ${pName(p)}!`, [{ label: 'Jogar', value: true, primary: true }], false,
+    `<div style="text-align:center;margin-bottom:12px"><span class="pin" style="--pc:${p.color};display:inline-block;width:40px;height:40px"></span></div>`);
+  busy = false;
+  render();
+}
+
+let victoryShown = false;
+async function victory() {
+  if (victoryShown) return;
+  victoryShown = true;
+  const p = S.winner;
+  const canRestart = NET.mode === 'local' || NET.isHost;
+  const again = await choose(`🏆 ${pName(p)} venceu a Trilha das Lendas!`,
+    canRestart ? [{ label: 'Jogar de novo', value: 'new', primary: true }, { label: 'Ver tabuleiro', value: 'see' }]
+               : [{ label: 'Ver tabuleiro', value: 'see', primary: true }], false,
+    canRestart ? '' : '<p class="muted">O anfitrião pode começar uma nova partida.</p>');
+  if (again === 'new') restartGame();
+}
+function restartGame() {
+  if (NET.mode === 'local') { show('setup'); return; }
+  if (!NET.isHost) return;
+  newGame(S.players.map(p => ({ name: p.name, pid: p.pid })));
+  markOnline(); victoryShown = false; sync(); render();
+}
+
+// ---------- Renderização ----------
+function render() {
+  const p = cur();
+  // Tabuleiro
+  let next = null;
+  if (!isFim(p.r, p.c)) { const [dr, dc] = DIRS[tileAt(p.r, p.c).dir]; next = [wrap(p.r + dr), wrap(p.c + dc)]; }
+  let h = '';
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+    const t = S.board[r][c];
+    const cls = ['tile'];
+    if (t.fim) cls.push('fim');
+    if (r === 0 && c === 0) cls.push('start');
+    if (ui.mode?.type === 'tile' && ui.mode.filter(r, c)) cls.push('pick');
+    if (ui.hl && ui.hl[0] === r && ui.hl[1] === c) cls.push('hl');
+    if (!ui.mode && !busy && next && next[0] === r && next[1] === c) cls.push('next');
+    const color = t.fim ? '#111' : EL[t.el].c;
+    h += `<div class="${cls.join(' ')}" data-r="${r}" data-c="${c}" style="--c:${color}" title="${t.fim ? 'FIM' : EL[t.el].n}">
+      <i class="k tl"></i><i class="k tr"></i><i class="k bl"></i><i class="k br"></i>
+      <div class="ico">${t.fim ? 'FIM' : EL[t.el].i}</div>
+      ${t.fim ? '' : `<div class="arrw" style="transform:rotate(${t.dir * 90}deg)"><span class="arr">▲</span></div>`}
+      <div class="pins">${playersAt(r, c).map(o => `<span class="pin ${o === p ? 'me' : ''}" style="--pc:${o.color}" title="${esc(o.name)}"></span>`).join('')}</div>
+    </div>`;
+  }
+  document.getElementById('board').innerHTML = h;
+
+  // Turno / ações
+  const mine = canAct();
+  const free = !busy && !S.winner && S.actions > 0 && mine;
+  const onFim = isFim(p.r, p.c);
+  const tEl = onFim ? null : tileAt(p.r, p.c).el;
+  let tb = `<div class="turn"><span class="pin" style="--pc:${p.color}"></span>
+    <div><b style="font-size:18px">${esc(p.name)}</b>${NET.mode === 'online' && mine ? '<span class="tag">SUA VEZ</span>' : ''}<br><small>Ações restantes</small></div>
+    <div class="acts">${Array.from({ length: Math.max(2, S.actions) }, (_, i) => `<span class="${i < S.actions ? 'on' : ''}"></span>`).join('')}</div></div>`;
+  if (ui.mode?.type === 'tile') {
+    tb += `<div class="prompt"><span>${ui.mode.msg}</span><button id="btnCancelPick">Cancelar</button></div>`;
+  } else if (S.winner) {
+    tb += `<div class="prompt">🏆 ${pName(S.winner)} venceu! ${NET.mode === 'local' || NET.isHost ? '<button id="btnNew" class="primary">Novo jogo</button>' : ''}</div>`;
+  } else if (!mine) {
+    tb += `<div class="waiting">⏳ Aguardando ${pName(p)} jogar...${p.online ? '' : '<br><span class="muted">(desconectado)</span>'}</div>`;
+    if (NET.isHost && !p.online) tb += `<div style="margin-top:8px;text-align:right"><button id="btnSkip">Pular a vez de ${esc(p.name)}</button></div>`;
+  } else {
+    const canAbility = p.card && payOptions(p).length > 0;
+    tb += `<div class="btns">
+      <button data-act="move" ${free ? '' : 'disabled'}>🚶 Mover 1 casa ${onFim ? '(sair do FIM)' : DIR_ARROW[tileAt(p.r, p.c).dir]}</button>
+      <button data-act="collect" ${free && !onFim && S.supply[tEl] > 0 ? '' : 'disabled'}>✋ Coletar ${onFim ? '' : EL[tEl].i + ' ' + EL[tEl].n}</button>
+      <button data-act="ability" ${free && canAbility ? '' : 'disabled'} title="${p.card && !canAbility ? 'Você não consegue pagar o custo' : ''}">✨ Usar habilidade</button>
+      <button data-act="discard" ${free && p.card ? '' : 'disabled'}>🗑️ Descartar carta</button>
+    </div>
+    <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <small>${p.card ? '' : '🃏 Clique numa carta do mercado para comprar.'}</small>
+      <button id="btnEnd" ${busy ? 'disabled' : ''}>Encerrar turno</button></div>`;
+  }
+  document.getElementById('turnBox').innerHTML = tb;
+
+  // Mercado
+  const canBuy = free && !p.card;
+  document.getElementById('market').innerHTML = S.market.map((id, i) => id
+    ? `<div class="mcard ${canBuy ? 'buy' : ''}" data-buy="${i}" title="${CARDS[id].name}: ${CARDS[id].txt}"><img class="card" src="${imgSrc(id)}"></div>`
+    : `<div class="mcard"></div>`).join('') + `<div class="pile">PILHA<br>${S.pile.length}</div>`;
+  document.getElementById('supply').innerHTML = 'Reserva: ' + ELS.map(e => `<span><span class="frag" style="--fc:${EL[e].c}"></span>${S.supply[e]}</span>`).join('');
+
+  // Jogadores
+  document.getElementById('players').innerHTML = S.players.map((o, i) => {
+    const fr = ELS.flatMap(e => Array(o.frags[e]).fill(`<span class="frag" style="--fc:${EL[e].c}" title="${EL[e].n}"></span>`));
+    while (fr.length < 5) fr.push('<span class="frag empty"></span>');
+    const missing = ELS.filter(e => o.frags[e] < 1);
+    const me = NET.mode === 'online' && o.pid === NET.myId;
+    return `<div class="pl ${i === S.cur ? 'cur' : ''} ${o.online ? '' : 'off'}">
+      ${o.card ? `<img src="${imgSrc(o.card)}" data-zoom="${o.card}" title="${CARDS[o.card].name}: ${CARDS[o.card].txt}">` : '<div class="nocard">sem carta</div>'}
+      <div class="info"><span class="pin" style="--pc:${o.color};display:inline-block;vertical-align:middle"></span> <b>${esc(o.name)}</b>${me ? '<span class="tag">VOCÊ</span>' : ''}${o.online ? '' : ' <span class="muted">(offline)</span>'}
+        <div class="frags">${fr.join('')}</div>
+        <div class="need">${missing.length ? 'Falta: ' + missing.map(e => EL[e].i).join(' ') : '✅ Tem todos os elementos — corra pro FIM!'}</div>
+      </div></div>`;
+  }).join('');
+
+  document.getElementById('log').innerHTML = S.log.slice(0, 60).map(l => `<li>${l}</li>`).join('');
+}
+
+// ---------- Eventos ----------
+document.getElementById('board').addEventListener('click', e => {
+  const t = e.target.closest('.tile');
+  if (!t || ui.mode?.type !== 'tile') return;
+  const r = +t.dataset.r, c = +t.dataset.c;
+  if (ui.mode.filter(r, c)) resolveTile([r, c]);
+});
+document.getElementById('turnBox').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.id === 'btnCancelPick') return resolveTile(null);
+  if (b.id === 'btnEnd') return endTurnEarly();
+  if (b.id === 'btnNew') return restartGame();
+  if (b.id === 'btnSkip' && NET.isHost && !busy) { log(`A vez de ${pName(cur())} foi pulada.`); return nextTurn(); }
+  if (b.dataset.act) act(b.dataset.act);
+});
+document.getElementById('market').addEventListener('click', e => {
+  const m = e.target.closest('.mcard.buy');
+  if (m) act('buy', +m.dataset.buy);
+});
+document.getElementById('players').addEventListener('click', e => {
+  const z = e.target.closest('[data-zoom]');
+  if (z && !busy) { const c = CARDS[z.dataset.zoom]; alertMsg(`${c.name} — ${c.hab}`); document.querySelector('#modal .msg').insertAdjacentHTML('afterend', `<img class="zoom" src="${imgSrc(z.dataset.zoom)}">`); }
+});
+
+const $ = id => document.getElementById(id);
+function show(id) { for (const s of ['menu', 'lobby', 'setup', 'game']) $(s).style.display = s === id ? '' : 'none'; }
+let toastTimer;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+const setErr = msg => { $('menuErr').textContent = msg; };
+
+// ---------- Jogo local ----------
+let nPlayers = 2;
+function renderNames() {
+  const old = [...document.querySelectorAll('#names input')].map(i => i.value);
+  $('names').innerHTML = Array.from({ length: nPlayers }, (_, i) =>
+    `<div class="row"><span class="pin" style="--pc:${PIN_COLORS[i].c}"></span><input value="${esc(old[i] ?? 'Jogador ' + (i + 1))}" maxlength="16"></div>`).join('');
+  document.querySelectorAll('#setup [data-n]').forEach(b => b.classList.toggle('primary', +b.dataset.n === nPlayers));
+}
+document.querySelectorAll('#setup [data-n]').forEach(b => b.onclick = () => { nPlayers = +b.dataset.n; renderNames(); });
+$('btnLocal').onclick = () => { resetNet(); show('setup'); };
+$('btnBack').onclick = () => show('menu');
+$('btnStart').onclick = async () => {
+  const names = [...document.querySelectorAll('#names input')].map((i, k) => i.value.trim() || `Jogador ${k + 1}`);
+  NET.mode = 'local';
+  newGame(names.map(name => ({ name })));
+  victoryShown = false;
+  show('game');
+  busy = true; render();
+  await choose(`${pName(cur())} começa!`, [{ label: 'Jogar', value: true, primary: true }], false);
+  busy = false; render();
+};
+renderNames();
+
+// ---------- Rede (PeerJS) ----------
+// O anfitrião guarda a partida oficial. Quem está na vez joga no próprio navegador
+// e envia o estado novo ao anfitrião, que repassa para todos.
+const PREFIX = 'trilhadaslendas-v1-';
+const NET = { mode: 'local', isHost: false, peer: null, myId: null, hostConn: null, conns: {}, lobby: [], code: null, epoch: 0 };
+const canAct = () => NET.mode === 'local' || cur().pid === NET.myId;
+
+function genCode() {
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 5 }, () => A[Math.floor(Math.random() * A.length)]).join('');
+}
+function myName() {
+  const n = $('myName').value.trim();
+  if (!n) { setErr('Digite seu nome primeiro.'); $('myName').focus(); return null; }
+  try { localStorage.setItem('tdl-name', n); } catch {}
+  return n;
+}
+function resetNet() {
+  const peer = NET.peer;
+  Object.assign(NET, { mode: 'local', isHost: false, peer: null, myId: null, hostConn: null, conns: {}, lobby: [], code: null });
+  if (peer && !peer.destroyed) peer.destroy();
+}
+function broadcast(msg, except) {
+  for (const [pid, c] of Object.entries(NET.conns)) if (c.open && pid !== except) c.send(msg);
+}
+function markOnline() {
+  if (S) for (const p of S.players) p.online = p.pid === NET.myId || !!NET.conns[p.pid]?.open;
+}
+function sync() {
+  if (NET.mode !== 'online') return;
+  if (NET.isHost) { markOnline(); broadcast({ t: 'state', S }); }
+  else if (NET.hostConn?.open) NET.hostConn.send({ t: 'state', S });
+}
+function applyState(ns) {
+  const wasMine = S && NET.myId && canAct();
+  S = ns; NET.epoch++;
+  if (busy) { $('modal').classList.remove('open'); busy = false; ui.mode = null; ui.hl = null; }
+  if (!S.winner) victoryShown = false;
+  show('game'); render();
+  if (S.winner) victory();
+  else if (!wasMine && canAct()) toast('🎲 Sua vez!');
+}
+
+// Anfitrião
+function createRoom() {
+  const name = myName(); if (!name) return;
+  resetNet();
+  NET.mode = 'online'; NET.isHost = true; NET.code = genCode();
+  setErr('Criando sala...');
+  const peer = new Peer(PREFIX + NET.code); NET.peer = peer;
+  peer.on('open', id => { NET.myId = id; NET.lobby = [{ pid: id, name }]; setErr(''); S = null; renderLobby(); show('lobby'); });
+  peer.on('connection', conn => {
+    conn.on('data', d => hostOnData(conn, d));
+    conn.on('close', () => hostOnClose(conn));
+  });
+  peer.on('disconnected', () => { if (!peer.destroyed) peer.reconnect(); });
+  peer.on('error', e => {
+    if (e.type === 'unavailable-id') return createRoom();
+    if (!NET.myId) { setErr('Não foi possível criar a sala (' + e.type + '). Tente de novo.'); resetNet(); }
+    else console.warn(e);
+  });
+}
+function hostOnData(conn, d) {
+  if (!d || typeof d !== 'object') return;
+  if (d.t === 'join') {
+    const name = String(d.name || '').trim().slice(0, 16) || 'Jogador';
+    if (!S) {
+      if (NET.lobby.length >= 5) return reject(conn, 'A sala está cheia (máximo 5 jogadores).');
+      NET.conns[conn.peer] = conn;
+      NET.lobby = NET.lobby.filter(l => l.pid !== conn.peer).concat({ pid: conn.peer, name });
+      broadcastLobby();
+    } else {
+      const p = S.players.find(p => !p.online && p.name.toLowerCase() === name.toLowerCase());
+      if (!p) return reject(conn, 'A partida já começou. Para voltar, entre com o mesmo nome de um jogador desconectado.');
+      p.pid = conn.peer; NET.conns[conn.peer] = conn;
+      log(`${pName(p)} voltou ao jogo.`);
+      sync(); render();
+    }
+  } else if (d.t === 'state' && S && d.S) {
+    // Só aceita o estado de quem está na vez; senão devolve o estado oficial
+    if (cur().pid !== conn.peer || S.winner) return conn.send({ t: 'state', S });
+    S = d.S; markOnline();
+    broadcast({ t: 'state', S }, conn.peer);
+    applyState(S);
+  }
+}
+function reject(conn, msg) {
+  conn.send({ t: 'reject', msg });
+  setTimeout(() => conn.close(), 500);
+}
+function hostOnClose(conn) {
+  if (NET.conns[conn.peer] !== conn) return;
+  delete NET.conns[conn.peer];
+  if (!S) { NET.lobby = NET.lobby.filter(l => l.pid !== conn.peer); broadcastLobby(); return; }
+  const p = S.players.find(p => p.pid === conn.peer);
+  if (p) { log(`${pName(p)} desconectou.`); sync(); render(); }
+}
+function broadcastLobby() {
+  renderLobby();
+  broadcast({ t: 'lobby', lobby: NET.lobby, code: NET.code });
+}
+function startOnline() {
+  if (!NET.isHost || NET.lobby.length < 2) return;
+  newGame(NET.lobby.map(l => ({ name: l.name, pid: l.pid })));
+  victoryShown = false;
+  sync(); show('game'); render();
+  if (canAct()) toast('🎲 Sua vez!');
+}
+
+// Convidado
+function joinRoom() {
+  const name = myName(); if (!name) return;
+  const code = $('joinCode').value.trim().toUpperCase();
+  if (code.length < 5) return setErr('Digite o código da sala (5 letras).');
+  resetNet();
+  NET.mode = 'online'; NET.code = code; S = null;
+  setErr('Conectando...');
+  const peer = new Peer(); NET.peer = peer;
+  peer.on('open', id => {
+    NET.myId = id;
+    const conn = peer.connect(PREFIX + code, { reliable: true }); NET.hostConn = conn;
+    conn.on('open', () => { setErr(''); conn.send({ t: 'join', name }); });
+    conn.on('data', clientOnData);
+    conn.on('close', () => { if (NET.hostConn === conn) hostLost(); });
+  });
+  peer.on('error', e => {
+    if (e.type === 'peer-unavailable') { setErr('Sala não encontrada. Confira o código.'); resetNet(); show('menu'); }
+    else if (!S) { setErr('Erro de conexão (' + e.type + '). Tente de novo.'); resetNet(); show('menu'); }
+    else console.warn(e);
+  });
+}
+function clientOnData(d) {
+  if (!d || typeof d !== 'object') return;
+  if (d.t === 'lobby') { NET.lobby = d.lobby; renderLobby(); show('lobby'); }
+  else if (d.t === 'state') applyState(d.S);
+  else if (d.t === 'reject') { setErr(d.msg); NET.hostConn = null; resetNet(); show('menu'); }
+}
+function hostLost() {
+  resetNet(); show('menu');
+  alertMsg('A conexão com o anfitrião caiu. A partida terminou 😢');
+}
+
+function renderLobby() {
+  const online = location.protocol.startsWith('http');
+  const link = location.href.split(/[?#]/)[0] + '?sala=' + NET.code;
+  $('lobby').innerHTML = `<h3>Sala</h3>
+    <div class="muted">Passe este código para seus amigos${online ? ' (ou mande o link)' : ''}:</div>
+    <div class="code">${esc(NET.code)}</div>
+    ${online ? `<div style="display:flex;gap:8px"><input readonly value="${esc(link)}" style="flex:1;font:inherit;font-size:13px;padding:6px;border:2px solid var(--line);border-radius:6px"><button id="btnCopy">Copiar link</button></div>` : ''}
+    <ul class="lobbyList">${NET.lobby.map((l, i) => `<li><span class="pin" style="--pc:${PIN_COLORS[i].c}"></span><b>${esc(l.name)}</b>
+      ${i === 0 ? '<span class="tag">ANFITRIÃO</span>' : ''}${l.pid === NET.myId ? '<span class="tag">VOCÊ</span>' : ''}</li>`).join('')}</ul>
+    ${NET.isHost
+      ? `<button class="primary" id="btnGo" ${NET.lobby.length < 2 ? 'disabled' : ''}>Começar partida (${NET.lobby.length}/5)</button>
+         ${NET.lobby.length < 2 ? '<div class="muted" style="margin-top:6px">Precisa de pelo menos 2 jogadores.</div>' : ''}`
+      : '<div class="waiting">⏳ Aguardando o anfitrião começar a partida...</div>'}
+    <div style="margin-top:10px"><button id="btnLeave">Sair da sala</button></div>`;
+}
+$('lobby').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.id === 'btnGo') startOnline();
+  if (b.id === 'btnLeave') { NET.hostConn = null; resetNet(); show('menu'); }
+  if (b.id === 'btnCopy') {
+    const inp = $('lobby').querySelector('input');
+    navigator.clipboard?.writeText(inp.value).then(() => toast('Link copiado!'), () => { inp.select(); document.execCommand('copy'); });
+  }
+});
+$('btnCreate').onclick = createRoom;
+$('btnJoin').onclick = joinRoom;
+$('joinCode').addEventListener('keydown', e => { if (e.key === 'Enter') joinRoom(); });
+window.addEventListener('beforeunload', e => { if (NET.mode === 'online' && S && !S.winner) { e.preventDefault(); e.returnValue = ''; } });
+try { $('myName').value = localStorage.getItem('tdl-name') || ''; } catch {}
+const salaParam = new URLSearchParams(location.search).get('sala');
+if (salaParam) $('joinCode').value = salaParam.toUpperCase().slice(0, 5);
+
+document.getElementById('btnRules').onclick = () => alertMsg(`Regras rápidas<div class="rules" style="font-weight:400">
+<ul>
+<li><b>Objetivo:</b> ser o primeiro a chegar ao <b>FIM</b> (centro) com pelo menos 1 fragmento de cada elemento (🔥 💨 💧 ⛰️).</li>
+<li>No seu turno você faz <b>2 ações</b> (podem repetir):
+  <ul><li>Comprar 1 carta do mercado (se estiver sem carta) ou descartar a sua;</li>
+  <li>Usar a habilidade da sua carta;</li>
+  <li>Coletar 1 fragmento do elemento da casa onde está;</li>
+  <li>Mover 1 casa na direção da seta.</li></ul></li>
+<li>Máximo de <b>1 carta</b> e <b>5 fragmentos</b> (pode trocar um velho por um novo).</li>
+<li><b>Custo da habilidade</b> (a carta é descartada) + um destes: estar numa casa do elemento da carta, OU pagar 1 fragmento desse elemento, OU pagar 2 fragmentos quaisquer.</li>
+<li>Uma seta <b>nunca</b> pode apontar para outra seta em sentido oposto.</li>
+<li>Trocar casas não gira as casas e os pinos ficam no lugar. O FIM não pode ser movido; do FIM você pode ir para qualquer casa adjacente.</li>
+<li>Sair do mapa leva ao lado oposto (borda infinita).</li>
+</ul></div>`);
+</script>
+</body>
+</html>
